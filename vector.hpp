@@ -2,6 +2,8 @@
 #define VECTOR_HPP_
 
 #include <memory>
+#include <iostream>
+#include <stdexcept>
 
 namespace ycstl {
 
@@ -94,10 +96,7 @@ public:
             return *this;
         }
         if (v.data_) {
-            for (std::size_t i = 0; i != size_; ++i) {
-                std::destroy_at(&data_[i]);
-            }
-            alloc_.deallocate(data_,capacity_);
+            v.~vector();
         }
         size_ = v.size_;
         capacity_ = v.capacity_;
@@ -114,10 +113,7 @@ public:
             return *this;
         }
         if (v.data_) {
-            for (std::size_t i = 0; i != size_; ++i) {
-                std::destroy_at(&data_[i]);
-            }
-            alloc_.deallocate(data_,capacity_);
+            v.~vector();
         }
         size_ = v.size_;
         capacity_ = v.capacity_;
@@ -131,6 +127,45 @@ public:
         return *this;
     }
 
+    void assign(std::size_t n, const T& value) {
+        if (data_) {
+            this->~vector();
+        }
+        size_ = capacity_ = n;
+        data_ = alloc_.allocate(capacity_);
+        for (std::size_t i = 0; i != size_; ++i) {
+            std::construct_at(&data_[i],value);
+        }
+    }
+
+    void assign(std::initializer_list<T> ilist) {
+        if (data_) {
+            this->~vector();
+        }
+        size_ = capacity_ = ilist.size();
+        data_ = alloc_.allocate(capacity_);
+        std::size_t pos = 0;
+        for (auto it = ilist.begin(); it != ilist.end(); ++it, ++pos) {
+            std::construct_at(&data_[pos],*it);
+        }
+    }
+
+    template< class InputIt, typename = std::void_t<
+        decltype(*std::declval<InputIt>()),
+        decltype(++std::declval<InputIt&>())
+    >>
+    void assign(InputIt first, InputIt last) {
+        if (data_) {
+            this->~vector();
+        }
+        size_ = capacity_ = last - first;
+        data_ = alloc_.allocate(capacity_);
+        std::size_t pos = 0;
+        for (InputIt it = first; it != last; ++it, ++pos) {
+            std::construct_at(&data_[pos], *it);
+        }
+    }
+
     T& operator[](const std::size_t& pos) {
         return data_[pos];
     }
@@ -139,29 +174,58 @@ public:
         return data_[pos];
     }
 
-    std::size_t size() {
+    T& at(const std::size_t& pos) {
+        if (pos >= size_) {
+            throw std::out_of_range("index out of range");
+        }
+        return data_[pos];
+    }
+
+    const T& at(const std::size_t& pos) const {
+        if (pos >= size_) {
+            throw std::out_of_range("index out of range");
+        }
+        return data_[pos];
+    }
+
+    T& front() {
+        return data_[0];
+    }
+
+    const T& front() const {
+        return data_[0];
+    }
+
+    T& back() {
+        return data_[size_ - 1];
+    }
+
+    const T& back() const {
+        return data_[size_ - 1];
+    }
+
+    T* data() {
+        return data_;
+    }
+
+    const T* data() const {
+        return data_;
+    }
+
+    std::size_t size() const {
         return size_;
     }
 
-    std::size_t capacity() {
+    std::size_t capacity() const {
         return capacity_;
     }
 
-    iterator begin() {
+    iterator begin() const {
         return &data_[0];
     }
 
-    iterator end() {
+    iterator end() const {
         return &data_[size_];
-    }
-
-
-    //测试输出
-    void test_print() {
-        for (int i = 0; i < size_; i++) {
-            std::cout << data_[i] << " ";
-        }
-        std::cout << std::endl;
     }
     
 private:
@@ -171,6 +235,19 @@ private:
     Allocator alloc_;
 };
 
+template <typename T>
+std::ostream& operator<<(std::ostream& os, const ycstl::vector<T>& v) {
+    os << "{";
+    for (auto it = v.begin(); it != v.end(); ++it) {
+        os << *it;
+        if (it != v.end() - 1) {
+            os << ", ";
+
+        }
+    }
+    os << "}";
+    return os;
 }
 
+}
 #endif
