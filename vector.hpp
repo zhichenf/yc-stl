@@ -45,7 +45,7 @@ public:
         }
     }
 
-    template< class InputIt, typename = std::void_t<
+    template<class InputIt, typename = std::void_t<
         decltype(*std::declval<InputIt>()),
         decltype(++std::declval<InputIt&>())
     >>
@@ -91,12 +91,12 @@ public:
         alloc_.deallocate(data_, capacity_);
     }
 
-    vector<int>& operator=(const vector<int>& v) {
+    vector<T>& operator=(const vector<T>& v) {
         if (data_ == v.data_) {
             return *this;
         }
-        if (v.data_) {
-            v.~vector();
+        if (this->data_) {
+            this->~vector();
         }
         size_ = v.size_;
         capacity_ = v.capacity_;
@@ -108,12 +108,12 @@ public:
         return *this;
     }
 
-    vector<int>& operator=(vector<int>&& v) {
+    vector<T>& operator=(vector<T>&& v) {
         if (data_ == v.data_) {
             return *this;
         }
-        if (v.data_) {
-            v.~vector();
+        if (this->data_) {
+            this->~vector();
         }
         size_ = v.size_;
         capacity_ = v.capacity_;
@@ -124,6 +124,20 @@ public:
         }
         v.size_ = v.capacity_ = 0;
         v.data_ = nullptr;
+        return *this;
+    }
+
+    vector& operator=(std::initializer_list<value_type> ilist ){
+        if (this->data_) {
+            this->~vector();
+        }
+        size_ = capacity_ = ilist.size();
+        data_ = alloc_.allocate(capacity_);
+        std::size_t pos = 0;
+        auto it = ilist.begin();
+        for (std::size_t i = 0; i != size_; ++i, ++it) {
+            std::construct_at(&data_[i],*it);
+        }
         return *this;
     }
 
@@ -220,6 +234,35 @@ public:
         return capacity_;
     }
 
+    bool empty() const {
+        return size_ == 0;
+    }
+
+    void reserve(std::size_t new_cap) {
+        if (new_cap <= capacity_) {
+            return;
+        }
+        new_cap = new_cap > capacity_ * 2 ? new_cap : capacity_ * 2;
+        
+        expand(new_cap);
+    }
+
+    void shrink_to_fit() {
+        if (size_ == capacity_) {
+            return;
+        }
+        T* old_data = data_;
+
+        data_ = alloc_.allocate(size_);
+        for (std::size_t i = 0; i != size_; ++i) {
+            std::construct_at(&data_[i], old_data[i]);
+            std::destroy_at(&old_data[i]);
+        }
+        alloc_.deallocate(old_data, capacity_);
+        capacity_ = size_;
+
+    }
+
     iterator begin() const {
         return &data_[0];
     }
@@ -227,14 +270,151 @@ public:
     iterator end() const {
         return &data_[size_];
     }
+
+    void clear() {
+        for (size_t i = 0; i != size_; ++i) {
+            std::destroy_at(&data_[i]);         //c++20
+        }
+        size_ = 0;
+    }
+
+    T* insert(const T* pos, const T& value) {
+        std::size_t pos_i = pos - &data_[0];
+        if (size_ == capacity_) {
+            expand(2*capacity_);
+        }
+        if (pos_i == size_) {
+            std::construct_at(&data_[size_],value);
+        } else {
+            std::construct_at(&data_[size_],data_[size_-1]);
+            std::size_t index = size_-1;
+            for( ; index != pos_i; --index) {
+                data_[index] = data_[index-1];
+            }
+            data_[index] = value;
+        }
+        size_++;
+        return &data_[pos_i];
+    }
+
+    T* insert(const T* pos, T&& value) {
+        std::size_t pos_i = pos - &data_[0];
+        if (size_ == capacity_) {
+            expand(2*capacity_);
+        }
+        if (pos_i == size_) {
+            std::construct_at(&data_[size_],value);
+        } else {
+            std::construct_at(&data_[size_],data_[size_-1]);
+            std::size_t index = size_-1;
+            for( ; index != pos_i; --index) {
+                data_[index] = data_[index-1];
+            }
+            data_[index] = std::move(value);
+        }
+        size_++;
+        return &data_[pos_i];
+    }
+
+    T* insert(const T* pos, std::size_t n, const T& value) {
+        std::size_t pos_i = pos - &data_[0];
+        if (size_ + n > capacity_) {
+            std::size_t new_cap = size_ + n > 2*capacity_ ? size_ + n : 2*capacity_;
+            expand(new_cap);
+        }
+        if (pos_i == size_) {
+            for (std::size_t i = 0; i < n; i++) {
+                std::construct_at(&data_[size_ + i],value);
+            }
+        } else {
+            std::size_t index = size_ + n - 1;
+            for ( ; index != pos_i + n - 1; --index) {
+                if (index >= size_) {
+                    std::construct_at(&data_[index],data_[index-n]);
+                } else {
+                    data_[index] = data_[index - n];
+                }
+            }
+            for (std::size_t i = pos_i; i <= index; ++i) {
+                if (i >= size_) {
+                    std::construct_at(&data_[i],value);
+                } else {
+                    data_[i] = value;
+                }
+            }
+        }
+        size_ += n;
+        return &data_[pos_i];
+    }
+
+    template< class InputIt, typename = std::void_t<
+        decltype(*std::declval<InputIt>()),
+        decltype(++std::declval<InputIt&>())
+    >>
+    T* insert(const T* pos, InputIt first, InputIt last) {
+        std::size_t n = last - first;
+        std::size_t pos_i = pos - &data_[0];
+        if (size_ + n > capacity_) {
+            std::size_t new_cap = size_ + n > 2*capacity_ ? size_ + n : 2*capacity_;
+            expand(new_cap);
+        }
+        if (pos_i == size_) {
+            InputIt it = first;
+            for (std::size_t i = 0; i < n; ++i, ++it) {
+                std::construct_at(&data_[size_ + i],*it);
+            }
+        } else {
+            std::size_t index = size_ + n - 1;
+            for ( ; index != pos_i + n - 1; --index) {
+                if (index >= size_) {
+                    std::construct_at(&data_[index],data_[index-n]);
+                } else {
+                    data_[index] = data_[index - n];
+                }
+            }
+            InputIt it = first;
+            for (std::size_t i = pos_i; i <= index; ++i, ++it) {
+                if (i >= size_) {
+                    std::construct_at(&data_[i],*it);
+                } else {
+                    data_[i] = *it;
+                }
+            }
+        }
+        size_ += n;
+        return &data_[pos_i]; 
+    }
+
+    T* insert(const T* pos, std::initializer_list<T> ilist) {
+        return insert(pos, ilist.begin(), ilist.end()); 
+    }
+
     
 private:
+    //辅助扩容函数，扩容到指定大小
+    void expand(std::size_t new_cap) {
+        if (new_cap <= capacity_) {
+            return;
+        }
+        T* old_data = data_;
+        std::size_t old_cap = capacity_;
+        data_ = alloc_.allocate(new_cap);
+
+        capacity_ = new_cap;
+        for(std::size_t i = 0; i != size_; ++i) {
+            std::construct_at(&data_[i], old_data[i]);
+            std::destroy_at(&old_data[i]);
+        }
+        alloc_.deallocate(old_data,old_cap);
+    }
+
     T* data_;
     std::size_t size_;
     std::size_t capacity_;
     Allocator alloc_;
 };
 
+//输出vector，方便测试
 template <typename T>
 std::ostream& operator<<(std::ostream& os, const ycstl::vector<T>& v) {
     os << "{";
@@ -242,7 +422,6 @@ std::ostream& operator<<(std::ostream& os, const ycstl::vector<T>& v) {
         os << *it;
         if (it != v.end() - 1) {
             os << ", ";
-
         }
     }
     os << "}";
