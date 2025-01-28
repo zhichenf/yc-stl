@@ -263,12 +263,63 @@ public:
 
     }
 
-    iterator begin() const {
+    T* begin() const {
+        if (size_ == 0) {
+            return nullptr;
+        }
         return &data_[0];
     }
 
-    iterator end() const {
+    T* end() const {
+        if (size_ == 0) {
+            return nullptr;
+        }
         return &data_[size_];
+    }
+
+    const T* cbegin() const {
+        if (size_ == 0) {
+            return nullptr;
+        }
+        return &data_[0];
+    }
+
+    const T* cend() const {
+        if (size_ == 0) {
+            return nullptr;
+        }
+        return std::reverse_iterator<iterator>(&data_[size_]);
+    }
+
+    reverse_iterator rbegin() const {
+        if (size_ == 0) {
+            return std::reverse_iterator<iterator>(nullptr);
+        }
+        if (size_ == 0) {
+
+        }
+        return std::reverse_iterator<iterator>(&data_[size_]);
+    }
+
+    reverse_iterator rend() const {
+        if (size_ == 0) {
+            return std::reverse_iterator<iterator>(nullptr);
+        }
+        return std::reverse_iterator<iterator>((&data_[0]));
+    }
+
+    const_reverse_iterator crbegin() const {
+        if (size_ == 0) {
+            return std::reverse_iterator<iterator>(nullptr);
+        }
+        return std::reverse_iterator<const_iterator>(&data_[size_]);
+    }
+
+    const_reverse_iterator crend() const {
+        if (size_ == 0) {
+            return std::reverse_iterator<iterator>(nullptr);
+        }
+        return std::reverse_iterator<const_iterator>((&data_[0]));
     }
 
     void clear() {
@@ -389,7 +440,154 @@ public:
         return insert(pos, ilist.begin(), ilist.end()); 
     }
 
+    template< class... Args >
+    T* emplace( const T* pos, Args&&... args) {
+        std::size_t pos_i = pos - &data_[0];
+        if (size_ == capacity_) {
+            expand(2*capacity_);
+        }
+        if (pos_i == size_) {
+            std::construct_at(&data_[size_],T(std::forward<Args>(args)...));
+        } else {
+            std::construct_at(&data_[size_],data_[size_-1]);
+            std::size_t index = size_-1;
+            for( ; index != pos_i; --index) {
+                data_[index] = data_[index-1];
+            }
+            data_[index] = T(std::forward<Args>(args)...);
+        }
+        size_++;
+        return &data_[pos_i];
+    } 
+
+    iterator erase(iterator pos ) {
+        for (auto it = pos; it != end()-1; ++it) {
+            *it = *(it + 1);
+        }
+        std::destroy_at(&data_[size_-1]);
+        size_--;
+        return pos;
+    }
+
+    iterator erase( const_iterator pos ) {
+        for (auto it = pos; it != end()-1; ++it) {
+            *it = *(it + 1);
+        }
+        std::destroy_at(&data_[size_-1]);
+        size_--;
+        return pos;
+    }
+
+    iterator erase( iterator first, iterator last ) {
+        T* start = first;
+        T* it = last;
+        for (; it != end(); ++it, ++start) {
+            *start = *it;
+        }
+        for(; start != end(); ++start) {
+            std::destroy_at(start);
+        }
+        size_ -= (last - first);
+        return first;
+    }
+
+    iterator erase( const_iterator first, const_iterator last ) {
+        T* start = first;
+        T* it = last;
+        for (; it != end(); ++it, ++start) {
+            *start = *it;
+        }
+        for(; start != end(); ++start) {
+            std::destroy_at(start);
+        }
+        size_ -= (last - first);
+        return first;
+    }
+
+    void push_back( const T& value ) {
+        if (size_ == capacity_) {
+            expand(1 > 2*capacity_ ? 1 : 2*capacity_);
+        }
+        std::construct_at(&data_[size_],value);
+        size_++;
+    }
+
+    void push_back( T&& value ) {
+        if (size_ == capacity_) {
+            expand(1 > 2*capacity_ ? 1 : 2*capacity_);
+        }
+        std::construct_at(&data_[size_],std::move(value));
+        size_++;
+    }
+
+    template< class... Args >
+    void emplace_back( Args&&... args ) {
+        if (size_ == capacity_) {
+            expand(1 > 2*capacity_ ? 1 : 2*capacity_);
+        }
+        std::construct_at(&data_[size_],T(std::forward<Args>(args)...));
+        size_++;
+    }
+
+    void pop_back() {
+        std::destroy_at(&data_[size_ - 1]);
+        size_--;
+    }
+
     
+    void resize(std::size_t count) {
+        if (count == size_) {
+            return;
+        } else if (count > size_) {
+            if (count > capacity_) {
+                expand(count > 2*capacity_ ? count : 2*capacity_);
+            }
+            while (size_ != count) {
+                std::construct_at(&data_[size_], T());
+                size_++;
+            }
+            return;
+        }
+        while (size_ != count) {
+            std::destroy_at(&data_[size_-1]);
+            size_--;
+        }
+    }
+
+    void resize(std::size_t count, const T& value) {
+        if (count == size_) {
+            return;
+        } else if (count > size_) {
+            if (count > capacity_) {
+                expand(count > 2*capacity_ ? count : 2*capacity_);
+            }
+            while (size_ != count) {
+                std::construct_at(&data_[size_], value);
+                size_++;
+            }
+            return;
+        }
+        while (size_ != count) {
+            std::destroy_at(&data_[size_-1]);
+            size_--;
+        }
+    }
+
+    void swap(vector<T>& other) {
+        auto old_data = data_;
+        auto old_size = size_;
+        auto old_cap = capacity_;
+
+        data_ = other.data_;
+        size_ = other.size_;
+        capacity_ = other.capacity_;
+
+        other.data_ = old_data;
+        other.size_ = old_size;
+        other.capacity_ = old_cap;
+    } 
+
+
 private:
     //辅助扩容函数，扩容到指定大小
     void expand(std::size_t new_cap) {
