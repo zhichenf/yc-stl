@@ -108,7 +108,7 @@ public:
         return *this;
     }
 
-    vector<T>& operator=(vector<T>&& v) {
+    vector<T>& operator=(vector<T>&& v) noexcept {
         if (data_ == v.data_) {
             return *this;
         }
@@ -263,35 +263,49 @@ public:
 
     }
 
-    T* begin() const {
+    T* begin() noexcept {
         if (size_ == 0) {
             return nullptr;
         }
         return &data_[0];
     }
 
-    T* end() const {
+    T* end() noexcept {
         if (size_ == 0) {
             return nullptr;
         }
         return &data_[size_];
     }
 
-    const T* cbegin() const {
+    const T* begin() const noexcept {
         if (size_ == 0) {
             return nullptr;
         }
         return &data_[0];
     }
 
-    const T* cend() const {
+    const T* end() const noexcept {
+        if (size_ == 0) {
+            return nullptr;
+        }
+        return &data_[size_];
+    }
+
+    const T* cbegin() const noexcept {
+        if (size_ == 0) {
+            return nullptr;
+        }
+        return &data_[0];
+    }
+
+    const T* cend() const noexcept {
         if (size_ == 0) {
             return nullptr;
         }
         return std::reverse_iterator<iterator>(&data_[size_]);
     }
 
-    reverse_iterator rbegin() const {
+    reverse_iterator rbegin() noexcept {
         if (size_ == 0) {
             return std::reverse_iterator<iterator>(nullptr);
         }
@@ -301,21 +315,38 @@ public:
         return std::reverse_iterator<iterator>(&data_[size_]);
     }
 
-    reverse_iterator rend() const {
+    reverse_iterator rend() noexcept {
         if (size_ == 0) {
             return std::reverse_iterator<iterator>(nullptr);
         }
         return std::reverse_iterator<iterator>((&data_[0]));
     }
 
-    const_reverse_iterator crbegin() const {
+    const_reverse_iterator rbegin() const noexcept {
+        if (size_ == 0) {
+            return std::reverse_iterator<iterator>(nullptr);
+        }
+        if (size_ == 0) {
+
+        }
+        return std::reverse_iterator<iterator>(&data_[size_]);
+    }
+
+    const_reverse_iterator rend() const noexcept {
+        if (size_ == 0) {
+            return std::reverse_iterator<iterator>(nullptr);
+        }
+        return std::reverse_iterator<iterator>((&data_[0]));
+    }
+
+    const_reverse_iterator crbegin() const noexcept {
         if (size_ == 0) {
             return std::reverse_iterator<iterator>(nullptr);
         }
         return std::reverse_iterator<const_iterator>(&data_[size_]);
     }
 
-    const_reverse_iterator crend() const {
+    const_reverse_iterator crend() const noexcept {
         if (size_ == 0) {
             return std::reverse_iterator<iterator>(nullptr);
         }
