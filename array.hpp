@@ -1,3 +1,9 @@
+/**
+ * 实现array
+ * 
+ * @author YC奕晨 
+ * */ 
+
 #ifndef ARRAY_HPP_
 #define ARRAY_HPP_
 

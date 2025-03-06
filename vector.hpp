@@ -1,3 +1,9 @@
+/**
+ * 实现vector
+ * 
+ * @author YC奕晨 
+ * */ 
+
 #ifndef VECTOR_HPP_
 #define VECTOR_HPP_
 
