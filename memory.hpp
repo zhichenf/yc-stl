@@ -6,8 +6,8 @@
  * @author YC奕晨 
  * */ 
 
-#ifndef UNOQUE_PTR_HPP_
-#define UNOQUE_PTR_HPP_
+#ifndef MEMORY_HPP_
+#define MEMORY_HPP_
 
 #include <type_traits>
 #include <cstddef>
